@@ -10,6 +10,8 @@ import cv2
 import librosa
 import requests
 import subprocess
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 
 # CONFIG
 DATA_FILE = "survey_results.csv"
@@ -192,8 +194,6 @@ def load_face_detector():
 
 
 def get_video_transform():
-    import albumentations as A
-    from albumentations.pytorch import ToTensorV2
     return A.Compose([
         A.Resize(224, 224),
         A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
@@ -439,7 +439,7 @@ if st.session_state.stage == "intro":
         "keyakinan sebelum dan sesudah melihat demo konsep AI tools. Total waktunya "
         "sekitar 5–7 menit."
     )
-    pid = st.text_input("Nama (opsional):")
+    pid = st.text_input("Nama:")
     prior = st.radio(
         "Apakah Anda atau seseorang yang Anda kenal pernah menjadi sasaran penipuan "
         "dalam satu tahun terakhir?",
@@ -495,10 +495,10 @@ elif st.session_state.stage == "intervention":
 
     # put a gif
     st.image("manipulation.gif", caption="Perbedaan")    
-    st.image("model/flow.png", caption="model architechture")
+    st.image("model/flow.png", caption="arsitektur model")
 
     st.info(
-        "- Real time peringatan risiko\n"
+        "- Peringatan risiko real time\n"
         "- Deteksi potensi penipuan Video Audio (Deepfake Spoofing)\n"
     )
     if st.button("Lanjutkan ke Post-Test"):
