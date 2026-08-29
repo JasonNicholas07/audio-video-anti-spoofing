@@ -62,7 +62,10 @@ DEEPFAKE_SET_B = [
     ("live_test/questionnaire/fake002.mp4", "video", True),
     ("live_test/questionnaire/real002.mp4", "video", False),
     ("live_test/questionnaire/fake002.wav", "audio", True),
+    ("live_test/questionnaire/fake003.mp4", "video", True),
+    ("live_test/questionnaire/real003.mp4", "video", False),
     ("live_test/questionnaire/real002.wav", "audio", False),
+    
     
 ]
 
