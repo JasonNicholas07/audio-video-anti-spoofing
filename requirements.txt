@@ -4,7 +4,7 @@ matplotlib
 numpy
 torch
 torchvision
-opencv-python
+opencv-python-headless
 librosa
 mediapipe
 albumentations
