@@ -423,9 +423,9 @@ def score_deepfake_quiz(answers, samples):
 
 
 # APP
-st.set_page_config(page_title="SCAM Awareness Pre/Post Test", layout="centered")
-st.title("Scam Awareness Study")
-st.caption("Pre-test (mandiri) → Demo → Post-test (dibantu AI) → Hasil")
+st.set_page_config(page_title="Kuesioner", layout="centered")
+st.title("Kuesioner Pemahaman Penipuan Video / Audio")
+st.caption("Pre-test → Demo → Post-test → Hasil")
 
 if "stage" not in st.session_state:
     st.session_state.stage = "intro"
@@ -492,6 +492,11 @@ elif st.session_state.stage == "pre_test":
 elif st.session_state.stage == "intervention":
     st.header("Deteksi Penipuan Audio Video menggunakan Sistem AI Terintegrasi")
     st.write("Inovasi pengubah perilaku pengguna menuju kebiasaan finansial yang lebih baik")
+
+    # put a gif
+    st.image("manipulation.gif", caption="Perbedaan")    
+    st.image("model/flow.png", caption="model architechture")
+
     st.info(
         "- Real time peringatan risiko\n"
         "- Deteksi potensi penipuan Video Audio (Deepfake Spoofing)\n"
