@@ -10,3 +10,4 @@ mediapipe
 albumentations
 timm
 scipy
+libgl1-mesa-glx
