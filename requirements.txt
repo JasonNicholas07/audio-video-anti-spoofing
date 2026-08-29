@@ -1,0 +1,11 @@
+streamlit
+pandas
+matplotlib
+numpy
+torch
+opencv-contrib-python
+librosa
+mediapipe
+albumentations
+timm
+scipy
