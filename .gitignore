@@ -21,11 +21,6 @@ kaggle_token.txt
 *.pem
 *.key
 
-live_test/**/*.mp4
-live_test/**/*.wav
-live_test/**/*.mp3
-live_test/**/*.avi
-live_test/**/*.mov
 
 
 .ipynb_checkpoints/
