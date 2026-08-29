@@ -34,3 +34,6 @@ Thumbs.db
 
 #survey result
 survey_results.csv
+
+#streamlit secrets
+secrets.toml

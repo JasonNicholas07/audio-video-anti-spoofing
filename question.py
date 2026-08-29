@@ -21,7 +21,7 @@ BEST_VAL_THRESHOLD = 0.5
 SET_A = [
     ("SMS: 'BCA: Rekening Anda akan ditangguhkan dalam 24 jam. Verifikasi sekarang: bit.ly/bca-verify88'", True),
     ("Email dari bank Anda yang meminta Anda untuk masuk melalui aplikasi resmi guna memeriksa laporan mutasi baru.", False),
-    ("Pesan WhatsApp dari nomor tak dikenal: 'Bu, HP-ku hilang, ini nomor baruku, tolong transfer Rp2.000.000 segera.'", True),
+    ("Pesan WhatsApp dari nomor tak dikenal: 'Bu, HP ku hilang, ini nomor baruku, tolong transfer Rp2.000.000 segera.'", True),
     ("Panggilan dari nomor yang mengaku sebagai bagian penanganan penipuan bank Anda, yang meminta Anda menyebutkan kembali kode OTP yang baru saja Anda terima.", True),
     ("Notifikasi di dalam aplikasi perbankan Anda mengenai transfer berhasil yang baru saja Anda lakukan sendiri.", False),
     ("SMS yang menyatakan Anda memenangkan undian yang tidak pernah Anda ikuti, serta meminta biaya administrasi untuk mengklaim hadiah tersebut.", True),
@@ -37,7 +37,7 @@ SET_B = [
     ("Email yang mengatasnamakan perusahaan jasa pengiriman, meminta Anda untuk 'mengonfirmasi ulang detail pembayaran' melalui sebuah tautan.", True),
     ("Panggilan dari nomor resmi bank Anda yang mengonfirmasi transaksi yang Anda lakukan, tanpa permintaan tindakan apa pun.", False),
     ("Pesan yang mengatasnamakan dukungan teknis, menyatakan bahwa komputer Anda terkena virus dan meminta akses jarak jauh.", True),
-    ("Kode OTP via SMS tanpa permintaan tambahan—hanya kodenya saja—yang dikirim setelah Anda mencoba masuk (login).", False),
+    ("Kode OTP via SMS tanpa permintaan tambahan—hanya kodenya saja yang dikirim setelah Anda mencoba masuk (login).", False),
 ]
 
 CONFIDENCE_QUESTIONS = [
@@ -60,6 +60,7 @@ DEEPFAKE_SET_B = [
     ("live_test/questionnaire/real002.mp4", "video", False),
     ("live_test/questionnaire/fake002.wav", "audio", True),
     ("live_test/questionnaire/real002.wav", "audio", False),
+    
 ]
 
 INTENT_QUESTIONS = [
@@ -293,22 +294,22 @@ def get_ai_verdict(path, media_type):
 
 
 # HELPERS — survey logic
+def _airtable_headers():
+    return {
+        "Authorization": f"Bearer {st.secrets['airtable']['token']}",
+        "Content-Type": "application/json",
+    }
+
+def _airtable_url():
+    return f"https://api.airtable.com/v0/{st.secrets['airtable']['base_id']}/{st.secrets['airtable']['table_name']}"
+
 def init_data_file():
-    if not os.path.exists(DATA_FILE):
-        cols = [
-            "participant_id", "timestamp", "stage",
-            "detection_score", "detection_total",
-            "deepfake_score", "deepfake_total",
-            "confidence_avg", "intent_avg", "prior_scam_exposure"
-        ]
-        pd.DataFrame(columns=cols).to_csv(DATA_FILE, index=False)
+    pass
 
 
 def save_result(row: dict):
-    init_data_file()
-    df = pd.read_csv(DATA_FILE)
-    df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
-    df.to_csv(DATA_FILE, index=False)
+    clean_row = {k: (None if pd.isna(v) else v) for k, v in row.items()}
+    requests.post(_airtable_url(), headers=_airtable_headers(), json={"fields": clean_row})
 
 
 def render_detection_quiz(question_set, key_prefix):
@@ -399,6 +400,16 @@ def render_deepfake_quiz_assisted(samples, key_prefix):
         st.write("")
     return answers
 
+def load_all_results():
+    records, offset = [], None
+    while True:
+        params = {"offset": offset} if offset else {}
+        resp = requests.get(_airtable_url(), headers=_airtable_headers(), params=params).json()
+        records.extend([r["fields"] for r in resp.get("records", [])])
+        offset = resp.get("offset")
+        if not offset:
+            break
+    return pd.DataFrame(records)
 
 def score_deepfake_quiz(answers, samples):
     correct = 0
@@ -478,13 +489,11 @@ elif st.session_state.stage == "pre_test":
 
 # --- INTERVENTION ---
 elif st.session_state.stage == "intervention":
-    st.header("Sekarang, lihat konsep Scam Shield kami")
-    st.write("ISI DEMO")
+    st.header("Deteksi Penipuan Audio Video menggunakan Sistem AI Terintegrasi")
+    st.write("Inovasi pengubah perilaku pengguna menuju kebiasaan finansial yang lebih baik")
     st.info(
-        "- Real-time transaction risk warnings\n"
-        "- QR code verification before payment\n"
-        "- AI-powered deepfake video/audio detection for scam calls\n"
-        "- Message checker for phishing links"
+        "- Real time peringatan risiko\n"
+        "- Deteksi potensi penipuan Video Audio (Deepfake Spoofing)\n"
     )
     if st.button("Lanjutkan ke Post-Test"):
         st.session_state.stage = "post_test"
@@ -595,54 +604,54 @@ elif st.session_state.stage == "results":
 
     st.divider()
     st.subheader("Hasil agregat seluruh peserta")
-    if os.path.exists(DATA_FILE):
-        df = pd.read_csv(DATA_FILE)
-        if len(df) > 0:
-            pre_df_agg = df[df["stage"] == "pre"].copy()
-            post_df_agg = df[df["stage"] == "post"].copy()
+    df = load_all_results()
+    if len(df) > 0:
+        
+        pre_df_agg = df[df["stage"] == "pre"].copy()
+        post_df_agg = df[df["stage"] == "post"].copy()
 
-            if len(pre_df_agg) > 0 and len(post_df_agg) > 0:
-                pre_df_agg["pct"] = pre_df_agg["detection_score"] / pre_df_agg["detection_total"] * 100
-                post_df_agg["pct"] = post_df_agg["detection_score"] / post_df_agg["detection_total"] * 100
-                pre_df_agg["df_pct"] = pre_df_agg["deepfake_score"] / pre_df_agg["deepfake_total"] * 100
-                post_df_agg["df_pct"] = post_df_agg["deepfake_score"] / post_df_agg["deepfake_total"] * 100
+        if len(pre_df_agg) > 0 and len(post_df_agg) > 0:
+            pre_df_agg["pct"] = pre_df_agg["detection_score"] / pre_df_agg["detection_total"] * 100
+            post_df_agg["pct"] = post_df_agg["detection_score"] / post_df_agg["detection_total"] * 100
+            pre_df_agg["df_pct"] = pre_df_agg["deepfake_score"] / pre_df_agg["deepfake_total"] * 100
+            post_df_agg["df_pct"] = post_df_agg["deepfake_score"] / post_df_agg["deepfake_total"] * 100
 
-                st.write(f"N = {len(pre_df_agg)} peserta (pre), {len(post_df_agg)} (post)")
+            st.write(f"N = {len(pre_df_agg)} peserta (pre), {len(post_df_agg)} (post)")
 
-                fig2, axes2 = plt.subplots(1, 2, figsize=(10, 4))
-                axes2[0].bar(["Pre (avg)", "Post (avg)"],
-                             [pre_df_agg["pct"].mean(), post_df_agg["pct"].mean()], color=["#888", "#2b7"])
-                axes2[0].set_ylabel("Rata-rata akurasi (%)"); axes2[0].set_ylim(0, 100)
-                axes2[0].set_title("Deteksi Penipuan (Agregat)")
+            fig2, axes2 = plt.subplots(1, 2, figsize=(10, 4))
+            axes2[0].bar(["Pre (avg)", "Post (avg)"],
+                            [pre_df_agg["pct"].mean(), post_df_agg["pct"].mean()], color=["#888", "#2b7"])
+            axes2[0].set_ylabel("Rata-rata akurasi (%)"); axes2[0].set_ylim(0, 100)
+            axes2[0].set_title("Deteksi Penipuan (Agregat)")
 
-                axes2[1].bar(["Pre\n(mandiri)", "Post\n(dibantu AI)"],
-                             [pre_df_agg["df_pct"].mean(), post_df_agg["df_pct"].mean()], color=["#888", "#2b7"])
-                axes2[1].set_ylabel("Rata-rata akurasi (%)"); axes2[1].set_ylim(0, 100)
-                axes2[1].set_title("Deteksi Deepfake (Agregat)")
-                plt.tight_layout()
-                st.pyplot(fig2)
+            axes2[1].bar(["Pre\n(mandiri)", "Post\n(dibantu AI)"],
+                            [pre_df_agg["df_pct"].mean(), post_df_agg["df_pct"].mean()], color=["#888", "#2b7"])
+            axes2[1].set_ylabel("Rata-rata akurasi (%)"); axes2[1].set_ylim(0, 100)
+            axes2[1].set_title("Deteksi Deepfake (Agregat)")
+            plt.tight_layout()
+            st.pyplot(fig2)
 
-                from scipy import stats
-                merged = pre_df_agg.merge(post_df_agg, on="participant_id", suffixes=("_pre", "_post"))
-                if len(merged) >= 2:
-                    t_stat, p_val = stats.ttest_rel(merged["pct_pre"], merged["pct_post"])
-                    st.write(f"Uji-t berpasangan (deteksi penipuan): t={t_stat:.3f}, p={p_val:.4f} (n={len(merged)})")
-                    if p_val < 0.05:
-                        st.success("Peningkatan signifikan secara statistik (p < 0.05).")
-                    else:
-                        st.warning("Belum signifikan secara statistik pada ukuran sampel ini.")
+            from scipy import stats
+            merged = pre_df_agg.merge(post_df_agg, on="participant_id", suffixes=("_pre", "_post"))
+            if len(merged) >= 2:
+                t_stat, p_val = stats.ttest_rel(merged["pct_pre"], merged["pct_post"])
+                st.write(f"Uji-t berpasangan (deteksi penipuan): t={t_stat:.3f}, p={p_val:.4f} (n={len(merged)})")
+                if p_val < 0.05:
+                    st.success("Peningkatan signifikan secara statistik (p < 0.05).")
+                else:
+                    st.warning("Belum signifikan secara statistik pada ukuran sampel ini.")
 
-                    t_stat_df, p_val_df = stats.ttest_rel(merged["df_pct_pre"], merged["df_pct_post"])
-                    st.write(f"Uji-t berpasangan (deteksi deepfake, efek bantuan AI): "
-                             f"t={t_stat_df:.3f}, p={p_val_df:.4f} (n={len(merged)})")
-                    if p_val_df < 0.05:
-                        st.success("Bantuan AI meningkatkan akurasi deteksi secara signifikan (p < 0.05).")
-                    else:
-                        st.warning("Efek bantuan AI belum signifikan secara statistik pada ukuran sampel ini.")
-            else:
-                st.info("Perlu minimal satu respons pre dan post lengkap untuk menampilkan perbandingan agregat.")
-
-            with st.expander("Data mentah"):
-                st.dataframe(df)
+                t_stat_df, p_val_df = stats.ttest_rel(merged["df_pct_pre"], merged["df_pct_post"])
+                st.write(f"Uji-t berpasangan (deteksi deepfake, efek bantuan AI): "
+                            f"t={t_stat_df:.3f}, p={p_val_df:.4f} (n={len(merged)})")
+                if p_val_df < 0.05:
+                    st.success("Bantuan AI meningkatkan akurasi deteksi secara signifikan (p < 0.05).")
+                else:
+                    st.warning("Efek bantuan AI belum signifikan secara statistik pada ukuran sampel ini.")
         else:
-            st.info("Belum ada data.")
+            st.info("Perlu minimal satu respons pre dan post lengkap untuk menampilkan perbandingan agregat.")
+
+        with st.expander("Data mentah"):
+            st.dataframe(df)
+    else:
+        st.info("Belum ada data.")
