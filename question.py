@@ -480,8 +480,9 @@ def pre_test_page():
 
 def intervention_page():
     st.title("Deteksi Penipuan Audio Video menggunakan Sistem AI Terintegrasi")
-    st.write("Inovasi pengubah perilaku pengguna menuju kebiasaan finansial yang lebih baik")
-    st.write("Video/Audio yang diambil murni belum pernah digunakan/dilihat AI sebelumnya")
+    st.write("Penipu makin canggih, tapi kita ada solusinya!")
+    st.write("Sistem ini membantu memeriksa keaslian setiap konten sebelum Bapak dan Ibu mengambil keputusan. Tanpa ribet, tanpa tekanan.")
+    st.write("Kami hadirkan 'teman digital' yang siap membantu memeriksa setiap video/audio yang masuk ke HP Bapak/Ibu. Caranya gampang, hasilnya langsung. Bukan menggantikan Bapak/Ibu, tapi membantu!")
 
     st.image("assets/manipulation.gif", caption="Gif 1. Perbandingan konten")
     st.image("assets/flow.png", caption="Gambar 1. Arsitektur model")
