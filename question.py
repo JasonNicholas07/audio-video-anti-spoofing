@@ -13,9 +13,7 @@ import subprocess
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
-# =============================================================================
 # CONFIG
-# =============================================================================
 VIDEO_CHECKPOINT = "model/video/best_cbam_gru_augmented.pt"
 AUDIO_CHECKPOINT = "model/audio/best_audio_model.pt"
 FACE_MODEL_PATH = "model/blaze_face_short_range.tflite"
@@ -62,9 +60,7 @@ INTENT_QUESTIONS = [
 ]
 
 
-# =============================================================================
 # MODEL DEFINITIONS
-# =============================================================================
 class ChannelAttention(nn.Module):
     def __init__(self, channels, reduction=16):
         super().__init__()
@@ -286,9 +282,7 @@ def get_ai_verdict(path, media_type):
     return prob, verdict
 
 
-# =============================================================================
 # AIRTABLE BACKEND
-# =============================================================================
 def _airtable_headers():
     return {
         "Authorization": f"Bearer {st.secrets['airtable']['token']}",
@@ -317,9 +311,7 @@ def load_all_results():
     return pd.DataFrame(records)
 
 
-# =============================================================================
-# QUIZ HELPERS - radio and slider widgets start with nothing selected
-# =============================================================================
+# QUIZ HELPERS
 def render_detection_quiz(question_set, key_prefix):
     st.write("Untuk setiap item, tentukan apakah ini penipuan atau sah/asli?")
     answers = {}
@@ -421,13 +413,10 @@ def score_deepfake_quiz(answers, samples):
 
 
 def all_answered(answers_dict):
-    """True only if every question in the dict has a non-None answer."""
     return all(v is not None for v in answers_dict.values())
 
 
-# =============================================================================
 # PAGE FUNCTIONS
-# =============================================================================
 def intro_page():
     st.title("Kuesioner Pemahaman Penipuan Video / Audio")
     st.caption("Pre-test -> Demo -> Post-test -> Hasil")
@@ -669,9 +658,7 @@ def results_page():
         st.info("Belum ada data.")
 
 
-# =============================================================================
 # PAGE DECLARATIONS + NAVIGATION
-# =============================================================================
 st.set_page_config(page_title="Kuesioner", layout="centered")
 
 intro_pg = st.Page(intro_page, title="Mulai", url_path="intro")
