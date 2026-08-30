@@ -13,19 +13,18 @@ import subprocess
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
+# =============================================================================
 # CONFIG
-DATA_FILE = "survey_results.csv"
-
+# =============================================================================
 VIDEO_CHECKPOINT = "model/video/best_cbam_gru_augmented.pt"
 AUDIO_CHECKPOINT = "model/audio/best_audio_model.pt"
 FACE_MODEL_PATH = "model/blaze_face_short_range.tflite"
-BEST_VAL_THRESHOLD = 0.5 
+BEST_VAL_THRESHOLD = 0.5
 
 SET_A = [
     ("SMS: 'BCA: Rekening Anda akan ditangguhkan dalam 24 jam. Verifikasi sekarang: bit.ly/bca-verify88'", True),
     ("Pesan WhatsApp dari nomor tak dikenal: 'Bu, HP ku hilang, ini nomor baruku, tolong transfer Rp2.000.000 segera.'", True),
     ("Email dari bank Anda yang meminta Anda untuk masuk melalui aplikasi resmi guna memeriksa laporan mutasi baru.", False),
-
 ]
 
 SET_B = [
@@ -39,9 +38,7 @@ CONFIDENCE_QUESTIONS = [
     "Seberapa yakin Anda dalam memverifikasi apakah kode QR atau tautan pembayaran itu sah?",
 ]
 
-# Pre-test: user judges ALONE, no AI help
 DEEPFAKE_SET_A = [
-    # (path, media_type: "video"/"audio", is_fake)
     ("live_test/questionnaire/fake001.mp4", "video", True),
     ("live_test/questionnaire/real_audio6.wav", "audio", False),
     ("live_test/questionnaire/fake001.wav", "audio", True),
@@ -50,14 +47,13 @@ DEEPFAKE_SET_A = [
     ("live_test/questionnaire/fake_video7.mp4", "video", True),
 ]
 
-# Post-test: user judges WITH the AI model's assistance shown per clip
 DEEPFAKE_SET_B = [
-    ("live_test/questionnaire/real6.mp4", "video", False),    
+    ("live_test/questionnaire/real6.mp4", "video", False),
     ("live_test/questionnaire/real7.mp4", "video", False),
     ("live_test/questionnaire/fake3.mp4", "video", True),
     ("live_test/questionnaire/real003.mp4", "video", False),
     ("live_test/questionnaire/real5.mp4", "video", False),
-    ("live_test/questionnaire/fake_video7.mp4", "video", True),   
+    ("live_test/questionnaire/fake_video7.mp4", "video", True),
 ]
 
 INTENT_QUESTIONS = [
@@ -66,7 +62,9 @@ INTENT_QUESTIONS = [
 ]
 
 
+# =============================================================================
 # MODEL DEFINITIONS
+# =============================================================================
 class ChannelAttention(nn.Module):
     def __init__(self, channels, reduction=16):
         super().__init__()
@@ -288,18 +286,18 @@ def get_ai_verdict(path, media_type):
     return prob, verdict
 
 
-# HELPERS — survey logic
+# =============================================================================
+# AIRTABLE BACKEND
+# =============================================================================
 def _airtable_headers():
     return {
         "Authorization": f"Bearer {st.secrets['airtable']['token']}",
         "Content-Type": "application/json",
     }
 
+
 def _airtable_url():
     return f"https://api.airtable.com/v0/{st.secrets['airtable']['base_id']}/{st.secrets['airtable']['table_name']}"
-
-def init_data_file():
-    pass
 
 
 def save_result(row: dict):
@@ -307,6 +305,21 @@ def save_result(row: dict):
     requests.post(_airtable_url(), headers=_airtable_headers(), json={"fields": clean_row})
 
 
+def load_all_results():
+    records, offset = [], None
+    while True:
+        params = {"offset": offset} if offset else {}
+        resp = requests.get(_airtable_url(), headers=_airtable_headers(), params=params).json()
+        records.extend([r["fields"] for r in resp.get("records", [])])
+        offset = resp.get("offset")
+        if not offset:
+            break
+    return pd.DataFrame(records)
+
+
+# =============================================================================
+# QUIZ HELPERS - radio and slider widgets start with nothing selected
+# =============================================================================
 def render_detection_quiz(question_set, key_prefix):
     st.write("Untuk setiap item, tentukan apakah ini penipuan atau sah/asli?")
     answers = {}
@@ -314,7 +327,7 @@ def render_detection_quiz(question_set, key_prefix):
         st.markdown(f"**{i+1}.** {text}")
         answers[i] = st.radio(
             "Your answer:", ["Palsu", "Asli", "Tidak yakin"],
-            key=f"{key_prefix}_q{i}", horizontal=True, label_visibility="collapsed"
+            index=None, key=f"{key_prefix}_q{i}", horizontal=True, label_visibility="collapsed"
         )
         st.write("")
     return answers
@@ -333,8 +346,10 @@ def score_detection(answers, question_set):
 def render_likert_block(questions, key_prefix):
     scores = []
     for i, q in enumerate(questions):
-        val = st.slider(q, 1, 5, 3, key=f"{key_prefix}_{i}",
-                         help="1 = Sangat tidak setuju, 5 = Sangat Setuju")
+        val = st.select_slider(
+            q, options=[1, 2, 3, 4, 5], value=None, key=f"{key_prefix}_{i}",
+            help="1 = Sangat tidak setuju, 5 = Sangat Setuju"
+        )
         scores.append(val)
     return scores
 
@@ -353,7 +368,7 @@ def render_deepfake_quiz_unassisted(samples, key_prefix):
             st.warning(f"File not found: {path}")
         answers[i] = st.radio(
             "Jawaban Anda:", ["Asli", "Palsu", "Tidak yakin"],
-            key=f"{key_prefix}_df{i}", horizontal=True, label_visibility="collapsed"
+            index=None, key=f"{key_prefix}_df{i}", horizontal=True, label_visibility="collapsed"
         )
         st.write("")
     return answers
@@ -389,21 +404,11 @@ def render_deepfake_quiz_assisted(samples, key_prefix):
 
         answers[i] = st.radio(
             "Keputusan akhir Anda:", ["Asli", "Palsu", "Tidak yakin"],
-            key=f"{key_prefix}_df{i}", horizontal=True, label_visibility="collapsed"
+            index=None, key=f"{key_prefix}_df{i}", horizontal=True, label_visibility="collapsed"
         )
         st.write("")
     return answers
 
-def load_all_results():
-    records, offset = [], None
-    while True:
-        params = {"offset": offset} if offset else {}
-        resp = requests.get(_airtable_url(), headers=_airtable_headers(), params=params).json()
-        records.extend([r["fields"] for r in resp.get("records", [])])
-        offset = resp.get("offset")
-        if not offset:
-            break
-    return pd.DataFrame(records)
 
 def score_deepfake_quiz(answers, samples):
     correct = 0
@@ -415,49 +420,52 @@ def score_deepfake_quiz(answers, samples):
     return correct, len(samples)
 
 
-# APP
-st.set_page_config(page_title="Kuesioner", layout="centered")
-st.title("Kuesioner Pemahaman Penipuan Video / Audio")
-st.caption("Pre-test → Demo → Post-test → Hasil")
+def all_answered(answers_dict):
+    """True only if every question in the dict has a non-None answer."""
+    return all(v is not None for v in answers_dict.values())
 
-if "stage" not in st.session_state:
-    st.session_state.stage = "intro"
-if "participant_id" not in st.session_state:
-    st.session_state.participant_id = ""
 
-# --- INTRO ---
-if st.session_state.stage == "intro":
+# =============================================================================
+# PAGE FUNCTIONS
+# =============================================================================
+def intro_page():
+    st.title("Kuesioner Pemahaman Penipuan Video / Audio")
+    st.caption("Pre-test -> Demo -> Post-test -> Hasil")
     st.write(
         "Studi singkat ini mengukur kemampuan mendeteksi penipuan serta tingkat "
         "keyakinan sebelum dan sesudah melihat demo konsep AI tools. Total waktunya "
-        "sekitar 5–7 menit."
+        "sekitar 5-7 menit."
     )
-    pid = st.text_input("Nama:")
+    pid = st.text_input("Nama:", value=st.session_state.get("participant_id", ""))
     prior = st.radio(
         "Apakah Anda atau seseorang yang Anda kenal pernah menjadi sasaran penipuan "
         "dalam satu tahun terakhir?",
-        ["Iya", "Tidak", "Tidak yakin"]
+        ["Iya", "Tidak", "Tidak yakin"], index=None
     )
-    if st.button("Mulai Pre-Test", disabled=(pid.strip() == "")):
+    if st.button("Mulai Pre-Test", disabled=(pid.strip() == "" or prior is None)):
         st.session_state.participant_id = pid.strip()
         st.session_state.prior_scam_exposure = prior
-        st.session_state.stage = "pre_test"
-        st.rerun()
+        st.switch_page(pre_test_pg)
 
-# --- PRE-TEST (unassisted) ---
-elif st.session_state.stage == "pre_test":
-    st.header("Pre-Test")
+
+def pre_test_page():
+    st.title("Pre-Test")
     st.caption("Jawablah sendiri, tanpa bantuan AI, untuk mengukur kemampuan awal Anda.")
-    st.subheader("Part 1 — Deteksi Penipuan")
+
+    st.subheader("Part 1 - Deteksi Penipuan")
     pre_answers = render_detection_quiz(SET_A, "pre")
 
-    st.subheader("Part 2 — Video / Audio (tanpa bantuan AI)")
+    st.subheader("Part 2 - Video / Audio (tanpa bantuan AI)")
     pre_df_answers = render_deepfake_quiz_unassisted(DEEPFAKE_SET_A, "pre_df")
 
-    st.subheader("Part 3 — Tingkat Keyakinan")
+    st.subheader("Part 3 - Tingkat Keyakinan")
     pre_confidence = render_likert_block(CONFIDENCE_QUESTIONS, "pre_conf")
 
-    if st.button("Submit Pre-Test"):
+    ready = all_answered(pre_answers) and all_answered(pre_df_answers) and all(c is not None for c in pre_confidence)
+    if not ready:
+        st.caption("Jawab semua pertanyaan di atas untuk melanjutkan.")
+
+    if st.button("Submit Pre-Test", disabled=not ready):
         score, total = score_detection(pre_answers, SET_A)
         df_score, df_total = score_deepfake_quiz(pre_df_answers, DEEPFAKE_SET_A)
         st.session_state.pre_score = score
@@ -478,17 +486,15 @@ elif st.session_state.stage == "pre_test":
             "intent_avg": None,
             "prior_scam_exposure": st.session_state.prior_scam_exposure,
         })
-        st.session_state.stage = "intervention"
-        st.rerun()
+        st.switch_page(intervention_pg)
 
-# --- INTERVENTION ---
-elif st.session_state.stage == "intervention":
-    st.header("Deteksi Penipuan Audio Video menggunakan Sistem AI Terintegrasi")
+
+def intervention_page():
+    st.title("Deteksi Penipuan Audio Video menggunakan Sistem AI Terintegrasi")
     st.write("Inovasi pengubah perilaku pengguna menuju kebiasaan finansial yang lebih baik")
     st.write("Video/Audio yang diambil murni belum pernah digunakan/dilihat AI sebelumnya")
 
-    # put a gif
-    st.image("assets/manipulation.gif", caption="Gif 1. Perbandingan konten")    
+    st.image("assets/manipulation.gif", caption="Gif 1. Perbandingan konten")
     st.image("assets/flow.png", caption="Gambar 1. Arsitektur model")
     st.image("assets/sistem.gif", caption="Gif 2. Video Asli & Audio Palsu")
     st.image("assets/sistem2.gif", caption="Gif 3. Video Palsu & Audio Palsu")
@@ -499,30 +505,38 @@ elif st.session_state.stage == "intervention":
         "- Deteksi potensi penipuan Video Audio (Deepfake Spoofing)\n"
     )
     if st.button("Lanjutkan ke Post-Test"):
-        st.session_state.stage = "post_test"
-        st.rerun()
+        st.switch_page(post_test_pg)
 
-# --- POST-TEST (AI-assisted) ---
-elif st.session_state.stage == "post_test":
-    st.header("Post-Test")
+
+def post_test_page():
+    st.title("Post-Test")
     st.caption(
-        "Kali ini Anda akan dibantu oleh sistem AI kami saat menilai klip video/audio — "
+        "Kali ini Anda akan dibantu oleh sistem AI kami saat menilai klip video/audio - "
         "ini mensimulasikan bagaimana produk akan benar-benar digunakan."
     )
-    st.subheader("Part 1 — Deteksi Penipuan")
+
+    st.subheader("Part 1 - Deteksi Penipuan")
     post_answers = render_detection_quiz(SET_B, "post")
 
-    st.subheader("Part 2 — Video / Audio (dibantu AI)")
+    st.subheader("Part 2 - Video / Audio (dibantu AI)")
     st.caption("Klip berbeda dari sebelumnya, dengan tingkat kesulitan yang setara.")
     post_df_answers = render_deepfake_quiz_assisted(DEEPFAKE_SET_B, "post_df")
 
-    st.subheader("Part 3 — Tingkat Keyakinan")
+    st.subheader("Part 3 - Tingkat Keyakinan")
     post_confidence = render_likert_block(CONFIDENCE_QUESTIONS, "post_conf")
 
-    st.subheader("Part 4 — Niat Perilaku")
+    st.subheader("Part 4 - Niat Perilaku")
     post_intent = render_likert_block(INTENT_QUESTIONS, "post_intent")
 
-    if st.button("Submit Post-Test"):
+    ready = (
+        all_answered(post_answers) and all_answered(post_df_answers)
+        and all(c is not None for c in post_confidence)
+        and all(c is not None for c in post_intent)
+    )
+    if not ready:
+        st.caption("Jawab semua pertanyaan di atas untuk melanjutkan.")
+
+    if st.button("Submit Post-Test", disabled=not ready):
         score, total = score_detection(post_answers, SET_B)
         df_score, df_total = score_deepfake_quiz(post_df_answers, DEEPFAKE_SET_B)
         st.session_state.post_score = score
@@ -544,15 +558,14 @@ elif st.session_state.stage == "post_test":
             "intent_avg": np.mean(post_intent),
             "prior_scam_exposure": st.session_state.prior_scam_exposure,
         })
-        st.session_state.stage = "results"
-        st.rerun()
+        st.switch_page(results_pg)
 
-# --- RESULTS ---
-elif st.session_state.stage == "results":
-    st.header("Hasil Anda")
+
+def results_page():
+    st.title("Hasil Anda")
     st.caption(
         "Catatan: skor Video/Audio pre-test diukur TANPA bantuan AI, sedangkan "
-        "post-test diukur DENGAN bantuan AI — perbandingan ini menunjukkan seberapa "
+        "post-test diukur DENGAN bantuan AI - perbandingan ini menunjukkan seberapa "
         "besar produk membantu, bukan murni peningkatan kemampuan manusia."
     )
 
@@ -603,13 +616,12 @@ elif st.session_state.stage == "results":
     if st.button("Mulai peserta baru"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
-        st.rerun()
+        st.switch_page(intro_pg)
 
     st.divider()
     st.subheader("Hasil agregat seluruh peserta")
     df = load_all_results()
     if len(df) > 0:
-        
         pre_df_agg = df[df["stage"] == "pre"].copy()
         post_df_agg = df[df["stage"] == "post"].copy()
 
@@ -623,12 +635,12 @@ elif st.session_state.stage == "results":
 
             fig2, axes2 = plt.subplots(1, 2, figsize=(10, 4))
             axes2[0].bar(["Pre (avg)", "Post (avg)"],
-                            [pre_df_agg["pct"].mean(), post_df_agg["pct"].mean()], color=["#888", "#2b7"])
+                         [pre_df_agg["pct"].mean(), post_df_agg["pct"].mean()], color=["#888", "#2b7"])
             axes2[0].set_ylabel("Rata-rata akurasi (%)"); axes2[0].set_ylim(0, 100)
             axes2[0].set_title("Deteksi Penipuan (Agregat)")
 
             axes2[1].bar(["Pre\n(mandiri)", "Post\n(dibantu AI)"],
-                            [pre_df_agg["df_pct"].mean(), post_df_agg["df_pct"].mean()], color=["#888", "#2b7"])
+                         [pre_df_agg["df_pct"].mean(), post_df_agg["df_pct"].mean()], color=["#888", "#2b7"])
             axes2[1].set_ylabel("Rata-rata akurasi (%)"); axes2[1].set_ylim(0, 100)
             axes2[1].set_title("Deteksi Deepfake (Agregat)")
             plt.tight_layout()
@@ -646,7 +658,7 @@ elif st.session_state.stage == "results":
 
                 t_stat_df, p_val_df = stats.ttest_rel(merged["df_pct_pre"], merged["df_pct_post"])
                 st.write(f"Uji-t berpasangan (deteksi deepfake, efek bantuan AI): "
-                            f"t={t_stat_df:.3f}, p={p_val_df:.4f} (n={len(merged)})")
+                         f"t={t_stat_df:.3f}, p={p_val_df:.4f} (n={len(merged)})")
                 if p_val_df < 0.05:
                     st.success("Bantuan AI meningkatkan akurasi deteksi secara signifikan (p < 0.05).")
                 else:
@@ -655,3 +667,21 @@ elif st.session_state.stage == "results":
             st.info("Perlu minimal satu respons pre dan post lengkap untuk menampilkan perbandingan agregat.")
     else:
         st.info("Belum ada data.")
+
+
+# =============================================================================
+# PAGE DECLARATIONS + NAVIGATION
+# =============================================================================
+st.set_page_config(page_title="Kuesioner", layout="centered")
+
+intro_pg = st.Page(intro_page, title="Mulai", url_path="intro")
+pre_test_pg = st.Page(pre_test_page, title="Pre-Test", url_path="pre-test")
+intervention_pg = st.Page(intervention_page, title="Demo", url_path="demo")
+post_test_pg = st.Page(post_test_page, title="Post-Test", url_path="post-test")
+results_pg = st.Page(results_page, title="Hasil", url_path="hasil")
+
+pg = st.navigation(
+    [intro_pg, pre_test_pg, intervention_pg, post_test_pg, results_pg],
+    position="hidden",
+)
+pg.run()
