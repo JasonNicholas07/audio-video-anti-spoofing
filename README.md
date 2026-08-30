@@ -24,7 +24,7 @@ Social engineering scams (phishing, OTP fraud, impersonation calls, QRIS fraud, 
 | DeeperForensics-1.0 | Video | Identity/lighting/emotion/camera combinatorial real set |
 | BioDeepAV | Video + Audio | Paired real/fake video and audio |
 | SEA-Spoof (Indonesian subset) | Audio | TTS/voice-conversion spoofing |
-| Celeb-DF v2 | Video | Held out entirely — used only for final generalization testing |
+| Celeb-DF v2 | Video |  Used only for final generalization testing |
 
 ## Data pipeline
 
@@ -40,9 +40,8 @@ Social engineering scams (phishing, OTP fraud, impersonation calls, QRIS fraud, 
 |---|---|---|---|
 | In-distribution (val) | 94.6% | 0.991 | FF++, DFDC, DeeperForensics, partial BioDeepAV |
 | BioDeepAV held-out (40%, partial-exposure) | 97.4% | 0.997 | Same source partially seen in training |
-| Celeb-DF v2 (fully unseen source) | 70.5% → 71.8%* | 0.788 → 0.806* | *After augmentation fine-tune targeting compression/quality robustness |
+| Celeb-DF v2 (fully unseen source) | 70.5% → 71.8%* | 0.788 → 0.806* | After augmentation fine-tune targeting compression/quality robustness |
 
-Models can learn source-specific compression and lighting artifacts rather than fully generalizable manipulation cues. This is reported directly rather than hidden.
 
 ## Repository structure
 
