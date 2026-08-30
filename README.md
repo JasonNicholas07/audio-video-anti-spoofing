@@ -1,5 +1,5 @@
 # Audio Video Deepfake Detection
- Prototype for detecting scam/fraud vectors relevant to digital banking, focused on video and audio deepfake detection with a human-in-the-loop evaluation layer.
+ Prototype for detecting scam/fraud relevant to digital banking, focused on video and audio deepfake detection with a human in evaluation layer.
 
 ![flow of model](assets/flow.png)
 

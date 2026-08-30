@@ -499,7 +499,7 @@ elif st.session_state.stage == "intervention":
 
     # put a gif
     st.image("assets/manipulation.gif", caption="Gif 1. Perbandingan konten")    
-    st.image("model/flow.png", caption="Gambar 1. Arsitektur model")
+    st.image("assets/flow.png", caption="Gambar 1. Arsitektur model")
     st.image("assets/sistem.gif", caption="Gif 2. Video Asli & Audio Palsu")
     st.image("assets/sistem2.gif", caption="Gif 3. Video Palsu & Audio Palsu")
 
