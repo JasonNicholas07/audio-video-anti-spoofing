@@ -66,7 +66,7 @@ DEEPFAKE_SET_B = [
     ("live_test/questionnaire/fake3.mp4", "video", True),
     ("live_test/questionnaire/real003.mp4", "video", False),
     ("live_test/questionnaire/real5.mp4", "video", False),
-    ("live_test/questionnaire/fake.mp4", "video", True),   
+    ("live_test/questionnaire/fake_video7.mp4", "video", True),   
 ]
 
 INTENT_QUESTIONS = [
@@ -662,8 +662,5 @@ elif st.session_state.stage == "results":
                     st.warning("Efek bantuan AI belum signifikan secara statistik pada ukuran sampel ini.")
         else:
             st.info("Perlu minimal satu respons pre dan post lengkap untuk menampilkan perbandingan agregat.")
-
-        with st.expander("Data mentah"):
-            st.dataframe(df)
     else:
         st.info("Belum ada data.")
