@@ -25,22 +25,12 @@ SET_A = [
     ("SMS: 'BCA: Rekening Anda akan ditangguhkan dalam 24 jam. Verifikasi sekarang: bit.ly/bca-verify88'", True),
     ("Email dari bank Anda yang meminta Anda untuk masuk melalui aplikasi resmi guna memeriksa laporan mutasi baru.", False),
     ("Pesan WhatsApp dari nomor tak dikenal: 'Bu, HP ku hilang, ini nomor baruku, tolong transfer Rp2.000.000 segera.'", True),
-    ("Panggilan dari nomor yang mengaku sebagai bagian penanganan penipuan bank Anda, yang meminta Anda menyebutkan kembali kode OTP yang baru saja Anda terima.", True),
-    ("Notifikasi di dalam aplikasi perbankan Anda mengenai transfer berhasil yang baru saja Anda lakukan sendiri.", False),
-    ("SMS yang menyatakan Anda memenangkan undian yang tidak pernah Anda ikuti, serta meminta biaya administrasi untuk mengklaim hadiah tersebut.", True),
-    ("Email dari alamat email asli rekan kerja, membahas proyek yang sedang kalian kerjakan bersama.", False),
-    ("Kode QR di kasir toko yang mengarahkan ke halaman pembayaran umum, bukan ke layar konfirmasi QRIS resmi bank Anda.", True),
 ]
 
 SET_B = [
     ("SMS: 'Paket Anda tidak dapat dikirim. Bayar biaya bea cukai sebesar Rp15.000 di sini: shorturl.at/pkg2024'", True),
     ("Notifikasi push dari sistem operasi ponsel yang mengingatkan bahwa daya baterai Anda lemah.", False),
     ("Panggilan video dari seseorang yang wajah dan suaranya mirip atasan Anda, yang dengan mendesak meminta Anda mentransfer uang ke rekening vendor baru sebelum hari berakhir.", True),
-    ("Pesan teks dari teman yang mengonfirmasi rencana makan malam yang telah kalian bicarakan kemarin.", False),
-    ("Email yang mengatasnamakan perusahaan jasa pengiriman, meminta Anda untuk 'mengonfirmasi ulang detail pembayaran' melalui sebuah tautan.", True),
-    ("Panggilan dari nomor resmi bank Anda yang mengonfirmasi transaksi yang Anda lakukan, tanpa permintaan tindakan apa pun.", False),
-    ("Pesan yang mengatasnamakan dukungan teknis, menyatakan bahwa komputer Anda terkena virus dan meminta akses jarak jauh.", True),
-    ("Kode OTP via SMS tanpa permintaan tambahan, hanya kodenya saja yang dikirim setelah Anda mencoba masuk (login).", False),
 ]
 
 CONFIDENCE_QUESTIONS = [
@@ -393,7 +383,7 @@ def render_deepfake_quiz_assisted(samples, key_prefix):
         prob, verdict = st.session_state[cache_key]
 
         if prob is not None:
-            st.info(f"Hasil Analisis AI: **{verdict}** (skor kepercayaan palsu: {prob:.1%})")
+            st.info(f"Hasil Analisis AI: **{verdict}**")
         else:
             st.warning(verdict)
 
