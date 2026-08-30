@@ -40,7 +40,7 @@ SET_B = [
     ("Email yang mengatasnamakan perusahaan jasa pengiriman, meminta Anda untuk 'mengonfirmasi ulang detail pembayaran' melalui sebuah tautan.", True),
     ("Panggilan dari nomor resmi bank Anda yang mengonfirmasi transaksi yang Anda lakukan, tanpa permintaan tindakan apa pun.", False),
     ("Pesan yang mengatasnamakan dukungan teknis, menyatakan bahwa komputer Anda terkena virus dan meminta akses jarak jauh.", True),
-    ("Kode OTP via SMS tanpa permintaan tambahan—hanya kodenya saja yang dikirim setelah Anda mencoba masuk (login).", False),
+    ("Kode OTP via SMS tanpa permintaan tambahan, hanya kodenya saja yang dikirim setelah Anda mencoba masuk (login).", False),
 ]
 
 CONFIDENCE_QUESTIONS = [
@@ -63,7 +63,6 @@ DEEPFAKE_SET_B = [
     ("live_test/questionnaire/real002.mp4", "video", False),
     ("live_test/questionnaire/fake002.wav", "audio", True),
     ("live_test/questionnaire/fake003.mp4", "video", True),
-    ("live_test/questionnaire/real003.mp4", "video", False),
     ("live_test/questionnaire/real003.mp4", "video", False),
     
     
@@ -497,10 +496,13 @@ elif st.session_state.stage == "intervention":
     st.write("Inovasi pengubah perilaku pengguna menuju kebiasaan finansial yang lebih baik")
 
     # put a gif
-    st.image("manipulation.gif", caption="Perbedaan")    
-    st.image("model/flow.png", caption="arsitektur model")
+    st.image("assets/manipulation.gif", caption="Gif 1. Perbandingan konten")    
+    st.image("model/flow.png", caption="Gambar 1. Arsitektur model")
+    st.image("assets/sistem.gif", caption="Gif 2. Video Asli & Audio Palsu")
+    st.image("assets/sistem2.gif", caption="Gif 3. Video Palsu & Audio Palsu")
 
     st.info(
+        "Fitur dari sistem kami:"
         "- Peringatan risiko real time\n"
         "- Deteksi potensi penipuan Video Audio (Deepfake Spoofing)\n"
     )
