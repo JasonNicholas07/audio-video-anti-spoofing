@@ -52,20 +52,21 @@ CONFIDENCE_QUESTIONS = [
 DEEPFAKE_SET_A = [
     # (path, media_type: "video"/"audio", is_fake)
     ("live_test/questionnaire/fake001.mp4", "video", True),
-    ("live_test/questionnaire/real001.mp4", "video", False),
+    ("live_test/questionnaire/real_audio6.wav", "audio", False),
     ("live_test/questionnaire/fake001.wav", "audio", True),
+    ("live_test/questionnaire/real001.mp4", "video", False),
     ("live_test/questionnaire/real001.wav", "audio", False),
+    ("live_test/questionnaire/fake_video7.mp4", "video", True),
 ]
 
 # Post-test: user judges WITH the AI model's assistance shown per clip
 DEEPFAKE_SET_B = [
-    ("live_test/questionnaire/fake002.mp4", "video", True),
-    ("live_test/questionnaire/real002.mp4", "video", False),
-    ("live_test/questionnaire/fake002.wav", "audio", True),
-    ("live_test/questionnaire/fake003.mp4", "video", True),
+    ("live_test/questionnaire/real6.mp4", "video", False),    
+    ("live_test/questionnaire/real7.mp4", "video", False),
+    ("live_test/questionnaire/fake3.mp4", "video", True),
     ("live_test/questionnaire/real003.mp4", "video", False),
-    
-    
+    ("live_test/questionnaire/real5.mp4", "video", False),
+    ("live_test/questionnaire/fake.mp4", "video", True),   
 ]
 
 INTENT_QUESTIONS = [
@@ -502,7 +503,7 @@ elif st.session_state.stage == "intervention":
     st.image("assets/sistem2.gif", caption="Gif 3. Video Palsu & Audio Palsu")
 
     st.info(
-        "Fitur dari sistem kami:"
+        "Fitur dari sistem kami:\n"
         "- Peringatan risiko real time\n"
         "- Deteksi potensi penipuan Video Audio (Deepfake Spoofing)\n"
     )
