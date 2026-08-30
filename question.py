@@ -13,7 +13,9 @@ import subprocess
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
+# =============================================================================
 # CONFIG
+# =============================================================================
 VIDEO_CHECKPOINT = "model/video/best_cbam_gru_augmented.pt"
 AUDIO_CHECKPOINT = "model/audio/best_audio_model.pt"
 FACE_MODEL_PATH = "model/blaze_face_short_range.tflite"
@@ -60,7 +62,9 @@ INTENT_QUESTIONS = [
 ]
 
 
+# =============================================================================
 # MODEL DEFINITIONS
+# =============================================================================
 class ChannelAttention(nn.Module):
     def __init__(self, channels, reduction=16):
         super().__init__()
@@ -282,7 +286,100 @@ def get_ai_verdict(path, media_type):
     return prob, verdict
 
 
+def check_ffmpeg_installed():
+    from shutil import which
+    return which("ffmpeg") is not None
+
+
+def extract_audio_from_video(video_path, output_wav_path, sample_rate=16000):
+    cmd = [
+        "ffmpeg", "-y", "-i", video_path,
+        "-vn", "-ar", str(sample_rate), "-ac", "1",
+        output_wav_path,
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True)
+    except FileNotFoundError:
+        return False, "ffmpeg is not installed or not on PATH."
+    if result.returncode != 0:
+        return False, result.stderr.strip()[-500:]
+    return True, None
+
+
+def combine_modalities(video_prob, audio_prob, video_weight=0.6, audio_weight=0.4,
+                        extreme_high=0.85, extreme_low=0.15):
+    """Matches live_test_both_modal.py's combine_modalities exactly."""
+    if video_prob is None and audio_prob is None:
+        return None, "no_signal"
+    if video_prob is None:
+        return audio_prob, "audio_only"
+    if audio_prob is None:
+        return video_prob, "video_only"
+
+    video_extreme = video_prob >= extreme_high or video_prob <= extreme_low
+    audio_extreme = audio_prob >= extreme_high or audio_prob <= extreme_low
+
+    if video_extreme or audio_extreme:
+        video_distance = abs(video_prob - 0.5)
+        audio_distance = abs(audio_prob - 0.5)
+        if video_distance >= audio_distance:
+            return video_prob, "video_dominant (extreme)"
+        else:
+            return audio_prob, "audio_dominant (extreme)"
+    else:
+        combined = video_weight * video_prob + audio_weight * audio_prob
+        return combined, "weighted_average"
+
+
+def get_ai_verdict_both(path, media_type):
+    """Runs the video model and, when possible, the audio model too (audio is
+    extracted from the video file itself for video clips) so callers can show
+    both a Video analysis bar and an Audio analysis bar for a single clip."""
+    video_model, audio_model, device = load_models()
+    video_prob = None
+    audio_prob = None
+    audio_error = None
+
+    if media_type == "video":
+        if video_model is not None:
+            detector = load_face_detector()
+            transform = get_video_transform()
+            video_prob = predict_video(path, video_model, detector, transform, device)
+        if audio_model is not None:
+            if check_ffmpeg_installed():
+                wav_path = path + "_audio.wav"
+                ok, err = extract_audio_from_video(path, wav_path)
+                if ok and os.path.exists(wav_path):
+                    audio_prob = predict_audio(wav_path, audio_model, device)
+                    os.remove(wav_path)
+                else:
+                    audio_error = err or "Audio extraction failed."
+            else:
+                audio_error = "ffmpeg is not installed or not on PATH."
+    elif media_type == "audio":
+        if audio_model is not None:
+            audio_prob = predict_audio(path, audio_model, device)
+
+    return video_prob, audio_prob, audio_error
+
+
+def render_ai_verdict_bar(prob, verdict, label):
+    """Video/Audio-analysis style result block: heading, fake-probability
+    percentage, blue progress bar, and a short verdict line — matches the
+    look of the standalone live-test app instead of a plain st.info line."""
+    st.markdown(f"**{label}**")
+    if prob is None:
+        st.warning(verdict)
+        return
+    fake_pct = prob * 100
+    st.metric("Fake probability", f"{fake_pct:.1f}%")
+    st.progress(min(int(fake_pct), 100))
+    st.write(verdict)
+
+
+# =============================================================================
 # AIRTABLE BACKEND
+# =============================================================================
 def _airtable_headers():
     return {
         "Authorization": f"Bearer {st.secrets['airtable']['token']}",
@@ -311,9 +408,11 @@ def load_all_results():
     return pd.DataFrame(records)
 
 
-# QUIZ HELPERS
+# =============================================================================
+# QUIZ HELPERS - radio and slider widgets start with nothing selected
+# =============================================================================
 def render_detection_quiz(question_set, key_prefix):
-    st.write("Untuk setiap item, tentukan apakah ini penipuan atau sah/asli?")
+    st.write("Untuk setiap pertanyaan, tentukan apakah ini penipuan atau sah/asli?")
     answers = {}
     for i, (text, _) in enumerate(question_set):
         st.markdown(f"**{i+1}.** {text}")
@@ -385,14 +484,38 @@ def render_deepfake_quiz_assisted(samples, key_prefix):
         cache_key = f"{key_prefix}_verdict_{i}"
         if cache_key not in st.session_state:
             with st.spinner("AI sedang menganalisis..."):
-                prob, verdict = get_ai_verdict(path, media_type)
-            st.session_state[cache_key] = (prob, verdict)
-        prob, verdict = st.session_state[cache_key]
+                video_prob, audio_prob, audio_error = get_ai_verdict_both(path, media_type)
+            st.session_state[cache_key] = (video_prob, audio_prob, audio_error)
+        video_prob, audio_prob, audio_error = st.session_state[cache_key]
 
-        if prob is not None:
-            st.info(f"Hasil Analisis AI: **{verdict}**")
+        bcol1, bcol2 = st.columns(2)
+        with bcol1:
+            st.markdown("**Video analysis**")
+            if video_prob is not None:
+                fake_pct = video_prob * 100
+                st.metric("Fake probability", f"{fake_pct:.1f}%")
+                st.progress(min(int(fake_pct), 100))
+                st.write("Kemungkinan dimanipulasi" if video_prob >= BEST_VAL_THRESHOLD else "Kemungkinan asli")
+            else:
+                st.caption("Tidak tersedia untuk klip ini." if media_type != "video" else "Model tidak tersedia atau gagal memproses.")
+
+        with bcol2:
+            st.markdown("**Audio analysis**")
+            if audio_prob is not None:
+                fake_pct = audio_prob * 100
+                st.metric("Fake probability", f"{fake_pct:.1f}%")
+                st.progress(min(int(fake_pct), 100))
+                st.write("Kemungkinan dimanipulasi" if audio_prob >= BEST_VAL_THRESHOLD else "Kemungkinan asli")
+            else:
+                st.caption(audio_error or "Tidak tersedia untuk klip ini.")
+
+        combined, method = combine_modalities(video_prob, audio_prob)
+        if combined is not None:
+            subject = "Video" if media_type == "video" else "Audio"
+            summary = f"{subject} ini dimanipulasi" if combined >= BEST_VAL_THRESHOLD else f"{subject} ini asli"
+            st.info(f"**{summary}**")
         else:
-            st.warning(verdict)
+            st.warning("Model tidak tersedia atau gagal memproses file ini.")
 
         answers[i] = st.radio(
             "Keputusan akhir Anda:", ["Asli", "Palsu", "Tidak yakin"],
@@ -413,10 +536,13 @@ def score_deepfake_quiz(answers, samples):
 
 
 def all_answered(answers_dict):
+    """True only if every question in the dict has a non-None answer."""
     return all(v is not None for v in answers_dict.values())
 
 
+# =============================================================================
 # PAGE FUNCTIONS
+# =============================================================================
 def intro_page():
     st.title("Kuesioner Pemahaman Penipuan Video / Audio")
     st.caption("Pre-test -> Demo -> Post-test -> Hasil")
@@ -480,17 +606,25 @@ def pre_test_page():
 
 def intervention_page():
     st.title("Deteksi Penipuan Audio Video menggunakan Sistem AI Terintegrasi")
-    st.write("Penipu makin canggih, tapi kita ada solusinya!")
-    st.write("Sistem ini membantu memeriksa keaslian setiap konten sebelum Bapak dan Ibu mengambil keputusan. Tanpa ribet, tanpa tekanan.")
-    st.write("Kami hadirkan 'teman digital' yang siap membantu memeriksa setiap video/audio yang masuk ke HP Bapak/Ibu. Caranya gampang, hasilnya langsung. Bukan menggantikan Bapak/Ibu, tapi membantu!")
+    st.write("Penipu makin canggih, tapi kita ada solusinya. \nSebuah sistem yang membantu memeriksa keaslian setiap konten sebelum Bapak dan Ibu mengambil keputusan. Tanpa ribet, tanpa tekanan. Hanya ketenangan yang terjaga.\nKami hadirkan 'teman digital' yang siap membantu memeriksa setiap video/audio yang masuk ke HP Bapak/Ibu. Caranya gampang, hasilnya langsung. Bukan menggantikan kewaspadaan Bapak/Ibu, tapi memperkuatnya.")
 
+    st.write("Berikut adalah perbandingan antara video asli dan video yang telah dimodifikasi menggunakan kecerdasan buatan. Keduanya terlihat sangat mirip, bukan?")
     st.image("assets/manipulation.gif", caption="Gif 1. Perbandingan konten")
+
+    st.write("Alur sistem ditunjukkan pada grafik berikut")
     st.image("assets/flow.png", caption="Gambar 1. Arsitektur model")
+
+    st.write("Setiap video atau audio yang diperiksa akan langsung menampilkan angka persentase. Angka ini menunjukkan seberapa besar kemungkinan konten tersebut asli atau telah dimanipulasi.")
     st.image("assets/sistem.gif", caption="Gif 2. Video Asli & Audio Palsu")
+
+    st.write("Setelah sistem selesai memeriksa, akan muncul dua angka:\n"
+            "- Kemungkinan asli – seberapa besar konten ini autentik\n" 
+            "- Kemungkinan dimanipulasi – seberapa besar indikasi adanya AI\n" 
+            "- Kedua angka ini saling melengkapi. Semakin besar angka di salah satu sisi, semakin jelas hasilnya.")
     st.image("assets/sistem2.gif", caption="Gif 3. Video Palsu & Audio Palsu")
 
     st.info(
-        "Fitur dari sistem kami:\n"
+        "Apa yang bisa sistem ini lakukan?\n"
         "- Peringatan risiko real time\n"
         "- Deteksi potensi penipuan Video Audio (Deepfake Spoofing)\n"
     )
@@ -659,7 +793,9 @@ def results_page():
         st.info("Belum ada data.")
 
 
+# =============================================================================
 # PAGE DECLARATIONS + NAVIGATION
+# =============================================================================
 st.set_page_config(page_title="Kuesioner", layout="centered")
 
 intro_pg = st.Page(intro_page, title="Mulai", url_path="intro")
