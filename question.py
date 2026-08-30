@@ -23,14 +23,15 @@ BEST_VAL_THRESHOLD = 0.5
 
 SET_A = [
     ("SMS: 'BCA: Rekening Anda akan ditangguhkan dalam 24 jam. Verifikasi sekarang: bit.ly/bca-verify88'", True),
-    ("Email dari bank Anda yang meminta Anda untuk masuk melalui aplikasi resmi guna memeriksa laporan mutasi baru.", False),
     ("Pesan WhatsApp dari nomor tak dikenal: 'Bu, HP ku hilang, ini nomor baruku, tolong transfer Rp2.000.000 segera.'", True),
+    ("Email dari bank Anda yang meminta Anda untuk masuk melalui aplikasi resmi guna memeriksa laporan mutasi baru.", False),
+
 ]
 
 SET_B = [
-    ("SMS: 'Paket Anda tidak dapat dikirim. Bayar biaya bea cukai sebesar Rp15.000 di sini: shorturl.at/pkg2024'", True),
     ("Notifikasi push dari sistem operasi ponsel yang mengingatkan bahwa daya baterai Anda lemah.", False),
     ("Panggilan video dari seseorang yang wajah dan suaranya mirip atasan Anda, yang dengan mendesak meminta Anda mentransfer uang ke rekening vendor baru sebelum hari berakhir.", True),
+    ("SMS: 'Paket Anda tidak dapat dikirim. Bayar biaya bea cukai sebesar Rp15.000 di sini: shorturl.at/pkg2024'", True),
 ]
 
 CONFIDENCE_QUESTIONS = [
@@ -339,7 +340,6 @@ def render_likert_block(questions, key_prefix):
 
 
 def render_deepfake_quiz_unassisted(samples, key_prefix):
-    """Pre-test: user judges alone, no AI shown."""
     st.write("Dengarkan atau lihatlah setiap klip. Apakah ini asli atau palsu (AI-generated)?")
     answers = {}
     for i, (path, media_type, _) in enumerate(samples):
