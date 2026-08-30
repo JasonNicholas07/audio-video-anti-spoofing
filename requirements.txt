@@ -10,3 +10,5 @@ mediapipe
 albumentations
 timm
 scipy
+Pillow
+soundfile
