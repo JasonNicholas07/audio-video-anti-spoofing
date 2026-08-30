@@ -495,6 +495,7 @@ elif st.session_state.stage == "pre_test":
 elif st.session_state.stage == "intervention":
     st.header("Deteksi Penipuan Audio Video menggunakan Sistem AI Terintegrasi")
     st.write("Inovasi pengubah perilaku pengguna menuju kebiasaan finansial yang lebih baik")
+    st.write("Video/Audio yang diambil murni belum pernah digunakan/dilihat AI sebelumnya")
 
     # put a gif
     st.image("assets/manipulation.gif", caption="Gif 1. Perbandingan konten")    
