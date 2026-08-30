@@ -13,9 +13,7 @@ import subprocess
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
-# =============================================================================
 # CONFIG
-# =============================================================================
 VIDEO_CHECKPOINT = "model/video/best_cbam_gru_augmented.pt"
 AUDIO_CHECKPOINT = "model/audio/best_audio_model.pt"
 FACE_MODEL_PATH = "model/blaze_face_short_range.tflite"
@@ -62,9 +60,7 @@ INTENT_QUESTIONS = [
 ]
 
 
-# =============================================================================
 # MODEL DEFINITIONS
-# =============================================================================
 class ChannelAttention(nn.Module):
     def __init__(self, channels, reduction=16):
         super().__init__()
@@ -377,9 +373,7 @@ def render_ai_verdict_bar(prob, verdict, label):
     st.write(verdict)
 
 
-# =============================================================================
 # AIRTABLE BACKEND
-# =============================================================================
 def _airtable_headers():
     return {
         "Authorization": f"Bearer {st.secrets['airtable']['token']}",
@@ -408,9 +402,7 @@ def load_all_results():
     return pd.DataFrame(records)
 
 
-# =============================================================================
 # QUIZ HELPERS - radio and slider widgets start with nothing selected
-# =============================================================================
 def render_detection_quiz(question_set, key_prefix):
     st.write("Untuk setiap pertanyaan, tentukan apakah ini penipuan atau sah/asli?")
     answers = {}
@@ -540,11 +532,14 @@ def all_answered(answers_dict):
     return all(v is not None for v in answers_dict.values())
 
 
-# =============================================================================
 # PAGE FUNCTIONS
-# =============================================================================
+def render_survey_progress(step, total_steps=3):
+    progress_val = int((step / total_steps) * 100)
+    st.progress(progress_val, text=f"Bagian {step}/{total_steps}")
+
 def intro_page():
     st.title("Kuesioner Pemahaman Penipuan Video / Audio")
+    render_survey_progress(1)
     st.caption("Pre-test -> Demo -> Post-test -> Hasil")
     st.write(
         "Studi singkat ini mengukur kemampuan mendeteksi penipuan serta tingkat "
@@ -565,6 +560,7 @@ def intro_page():
 
 def pre_test_page():
     st.title("Pre-Test")
+    render_survey_progress(2)
     st.caption("Jawablah sendiri, tanpa bantuan AI, untuk mengukur kemampuan awal Anda.")
 
     st.subheader("Part 1 - Deteksi Penipuan")
@@ -634,6 +630,7 @@ def intervention_page():
 
 def post_test_page():
     st.title("Post-Test")
+    render_survey_progress(3)
     st.caption(
         "Kali ini Anda akan dibantu oleh sistem AI kami saat menilai klip video/audio - "
         "ini mensimulasikan bagaimana produk akan benar-benar digunakan."
@@ -793,9 +790,7 @@ def results_page():
         st.info("Belum ada data.")
 
 
-# =============================================================================
 # PAGE DECLARATIONS + NAVIGATION
-# =============================================================================
 st.set_page_config(page_title="Kuesioner", layout="centered")
 
 intro_pg = st.Page(intro_page, title="Mulai", url_path="intro")
