@@ -289,14 +289,49 @@ def get_ai_verdict(path, media_type):
     return prob, verdict
 
 
-def check_ffmpeg_installed():
+# ---------------------------------------------------------------------------
+# Portable ffmpeg resolution — works on Streamlit Cloud (via packages.txt
+# installing the apt "ffmpeg" package onto PATH) and on any other machine.
+# Resolution order:
+#   1. FFMPEG_PATH env var, if the user wants to pin a specific binary.
+#   2. A system "ffmpeg" already on PATH (this is what packages.txt gives you
+#      on Streamlit Cloud).
+#   3. The bundled binary from the `imageio-ffmpeg` package as a fallback for
+#      local/dev machines that don't have ffmpeg installed system-wide.
+# ---------------------------------------------------------------------------
+@st.cache_resource
+def _resolve_ffmpeg_path():
     from shutil import which
-    return which("ffmpeg") is not None
+
+    env_path = os.environ.get("FFMPEG_PATH")
+    if env_path and (which(env_path) or os.path.exists(env_path)):
+        return env_path
+
+    system_ffmpeg = which("ffmpeg")
+    if system_ffmpeg:
+        return system_ffmpeg
+
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return None
+
+
+def check_ffmpeg_installed():
+    return _resolve_ffmpeg_path() is not None
 
 
 def extract_audio_from_video(video_path, output_wav_path, sample_rate=16000):
+    ffmpeg_path = _resolve_ffmpeg_path()
+    if not ffmpeg_path:
+        return False, (
+            "ffmpeg is not installed or not on PATH. "
+            "Add `ffmpeg` to packages.txt (Streamlit Cloud) or "
+            "`pip install imageio-ffmpeg` for a bundled fallback."
+        )
     cmd = [
-        "ffmpeg", "-y", "-i", video_path,
+        ffmpeg_path, "-y", "-i", video_path,
         "-vn", "-ar", str(sample_rate), "-ac", "1",
         output_wav_path,
     ]

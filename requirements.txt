@@ -12,3 +12,4 @@ timm
 scipy
 Pillow
 soundfile
+imageio-ffmpeg
