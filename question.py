@@ -289,16 +289,6 @@ def get_ai_verdict(path, media_type):
     return prob, verdict
 
 
-# ---------------------------------------------------------------------------
-# Portable ffmpeg resolution — works on Streamlit Cloud (via packages.txt
-# installing the apt "ffmpeg" package onto PATH) and on any other machine.
-# Resolution order:
-#   1. FFMPEG_PATH env var, if the user wants to pin a specific binary.
-#   2. A system "ffmpeg" already on PATH (this is what packages.txt gives you
-#      on Streamlit Cloud).
-#   3. The bundled binary from the `imageio-ffmpeg` package as a fallback for
-#      local/dev machines that don't have ffmpeg installed system-wide.
-# ---------------------------------------------------------------------------
 @st.cache_resource
 def _resolve_ffmpeg_path():
     from shutil import which
