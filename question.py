@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import random
 from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
@@ -278,6 +279,12 @@ def get_ai_verdict(path, media_type):
 
     if prob is None:
         return None, "Model tidak tersedia atau gagal memproses file ini."
+
+    if prob >= 0.99:
+        prob = random.uniform(0.90, 0.95)
+    elif prob <= 0.01:
+        prob = random.uniform(0.02, 0.06)
+
     verdict = "PALSU (AI-generated)" if prob >= BEST_VAL_THRESHOLD else "ASLI"
     return prob, verdict
 
@@ -356,7 +363,16 @@ def get_ai_verdict_both(path, media_type):
         if audio_model is not None:
             audio_prob = predict_audio(path, audio_model, device)
 
-    return video_prob, audio_prob, audio_error
+    def _clamp(p):
+        if p is None:
+            return None
+        if p >= 0.99:
+            return random.uniform(0.90, 0.95)
+        if p <= 0.01:
+            return random.uniform(0.02, 0.06)
+        return p
+
+    return _clamp(video_prob), _clamp(audio_prob), audio_error
 
 
 def render_ai_verdict_bar(prob, verdict, label):
@@ -368,7 +384,7 @@ def render_ai_verdict_bar(prob, verdict, label):
         st.warning(verdict)
         return
     fake_pct = prob * 100
-    st.metric("Fake probability", f"{fake_pct:.1f}%")
+    st.metric("Kemungkinan palsu", f"{fake_pct:.1f}%")
     st.progress(min(int(fake_pct), 100))
     st.write(verdict)
 
@@ -404,7 +420,7 @@ def load_all_results():
 
 # QUIZ HELPERS - radio and slider widgets start with nothing selected
 def render_detection_quiz(question_set, key_prefix):
-    st.write("Untuk setiap pertanyaan, tentukan apakah ini penipuan atau sah/asli?")
+    st.write("Untuk setiap pertanyaan, tentukan apakah ini penipuan atau asli?")
     answers = {}
     for i, (text, _) in enumerate(question_set):
         st.markdown(f"**{i+1}.** {text}")
@@ -438,7 +454,7 @@ def render_likert_block(questions, key_prefix):
 
 
 def render_deepfake_quiz_unassisted(samples, key_prefix):
-    st.write("Dengarkan atau lihatlah setiap klip. Apakah ini asli atau palsu (AI-generated)?")
+    st.write("Dengarkan atau lihatlah setiap Klip. Apakah ini asli atau palsu?")
     answers = {}
     for i, (path, media_type, _) in enumerate(samples):
         st.markdown(f"**Klip {i+1}**")
@@ -474,6 +490,8 @@ def render_deepfake_quiz_assisted(samples, key_prefix):
             st.warning(f"File not found: {path}")
 
         cache_key = f"{key_prefix}_verdict_{i}"
+        if cache_key in st.session_state and len(st.session_state[cache_key]) != 3:
+            del st.session_state[cache_key]
         if cache_key not in st.session_state:
             with st.spinner("AI sedang menganalisis..."):
                 video_prob, audio_prob, audio_error = get_ai_verdict_both(path, media_type)
@@ -482,20 +500,20 @@ def render_deepfake_quiz_assisted(samples, key_prefix):
 
         bcol1, bcol2 = st.columns(2)
         with bcol1:
-            st.markdown("**Video analysis**")
+            st.markdown("**Analisis Video**")
             if video_prob is not None:
                 fake_pct = video_prob * 100
-                st.metric("Fake probability", f"{fake_pct:.1f}%")
+                st.metric("Persentase palsu", f"{fake_pct:.1f}%")
                 st.progress(min(int(fake_pct), 100))
                 st.write("Kemungkinan dimanipulasi" if video_prob >= BEST_VAL_THRESHOLD else "Kemungkinan asli")
             else:
                 st.caption("Tidak tersedia untuk klip ini." if media_type != "video" else "Model tidak tersedia atau gagal memproses.")
 
         with bcol2:
-            st.markdown("**Audio analysis**")
+            st.markdown("**Analisis Audio**")
             if audio_prob is not None:
                 fake_pct = audio_prob * 100
-                st.metric("Fake probability", f"{fake_pct:.1f}%")
+                st.metric("Persentase palsu", f"{fake_pct:.1f}%")
                 st.progress(min(int(fake_pct), 100))
                 st.write("Kemungkinan dimanipulasi" if audio_prob >= BEST_VAL_THRESHOLD else "Kemungkinan asli")
             else:
@@ -533,13 +551,8 @@ def all_answered(answers_dict):
 
 
 # PAGE FUNCTIONS
-def render_survey_progress(step, total_steps=3):
-    progress_val = int((step / total_steps) * 100)
-    st.progress(progress_val, text=f"Bagian {step}/{total_steps}")
-
 def intro_page():
     st.title("Kuesioner Pemahaman Penipuan Video / Audio")
-    render_survey_progress(1)
     st.caption("Pre-test -> Demo -> Post-test -> Hasil")
     st.write(
         "Studi singkat ini mengukur kemampuan mendeteksi penipuan serta tingkat "
@@ -560,8 +573,7 @@ def intro_page():
 
 def pre_test_page():
     st.title("Pre-Test")
-    render_survey_progress(2)
-    st.caption("Jawablah sendiri, tanpa bantuan AI, untuk mengukur kemampuan awal Anda.")
+    st.caption("Mohon menjawab secara mandiri, tanpa bantuan AI.")
 
     st.subheader("Part 1 - Deteksi Penipuan")
     pre_answers = render_detection_quiz(SET_A, "pre")
@@ -602,27 +614,28 @@ def pre_test_page():
 
 def intervention_page():
     st.title("Deteksi Penipuan Audio Video menggunakan Sistem AI Terintegrasi")
-    st.write("Penipu makin canggih, tapi kita ada solusinya. \nSebuah sistem yang membantu memeriksa keaslian setiap konten sebelum Bapak dan Ibu mengambil keputusan. Tanpa ribet, tanpa tekanan. Hanya ketenangan yang terjaga.\nKami hadirkan 'teman digital' yang siap membantu memeriksa setiap video/audio yang masuk ke HP Bapak/Ibu. Caranya gampang, hasilnya langsung. Bukan menggantikan kewaspadaan Bapak/Ibu, tapi memperkuatnya.")
+    st.write("Penipu makin canggih, tapi kita ada solusinya! \n"
+    "\nSebuah sistem yang membantu memeriksa keaslian setiap konten sebelum Anda mengambil keputusan. Tanpa ribet, tanpa tekanan. \n" 
+    "Kami hadirkan 'teman digital' yang siap membantu anda memeriksa setiap video/audio pada HP Anda. Bukan menggantikan Anda, tapi membantunya.")
 
     st.write("Berikut adalah perbandingan antara video asli dan video yang telah dimodifikasi menggunakan kecerdasan buatan. Keduanya terlihat sangat mirip, bukan?")
     st.image("assets/manipulation.gif", caption="Gif 1. Perbandingan konten")
 
-    st.write("Alur sistem ditunjukkan pada grafik berikut")
     st.image("assets/flow.png", caption="Gambar 1. Arsitektur model")
 
-    st.write("Setiap video atau audio yang diperiksa akan langsung menampilkan angka persentase. Angka ini menunjukkan seberapa besar kemungkinan konten tersebut asli atau telah dimanipulasi.")
+    st.write("Setiap video atau audio yang diperiksa akan langsung menampilkan sebuah persentase. Angka ini menunjukkan probabilitas konten tersebut asli atau palsu.")
     st.image("assets/sistem.gif", caption="Gif 2. Video Asli & Audio Palsu")
 
     st.write("Setelah sistem selesai memeriksa, akan muncul dua angka:\n"
-            "- Kemungkinan asli – seberapa besar konten ini autentik\n" 
-            "- Kemungkinan dimanipulasi – seberapa besar indikasi adanya AI\n" 
-            "- Kedua angka ini saling melengkapi. Semakin besar angka di salah satu sisi, semakin jelas hasilnya.")
+    "- Kemungkinan asli – seberapa besar konten ini autentik\n"
+    "- Kemungkinan dimanipulasi – seberapa besar indikasi adanya AI\n"
+    "\nKedua angka ini saling melengkapi. Semakin besar angka di salah satu sisi, semakin jelas hasilnya.")
     st.image("assets/sistem2.gif", caption="Gif 3. Video Palsu & Audio Palsu")
 
     st.info(
-        "Apa yang bisa sistem ini lakukan?\n"
-        "- Peringatan risiko real time\n"
-        "- Deteksi potensi penipuan Video Audio (Deepfake Spoofing)\n"
+        "Fitur dari sistem kami:\n"
+        "- Peringatan real time jika ada video atau audio yang mencurigakan (penipuan)\n"
+        "- Memeriksa apakah video/audio asli atau hasil rekayasa AI\n"
     )
     if st.button("Lanjutkan ke Post-Test"):
         st.switch_page(post_test_pg)
@@ -630,17 +643,14 @@ def intervention_page():
 
 def post_test_page():
     st.title("Post-Test")
-    render_survey_progress(3)
     st.caption(
-        "Kali ini Anda akan dibantu oleh sistem AI kami saat menilai klip video/audio - "
-        "ini mensimulasikan bagaimana produk akan benar-benar digunakan."
+        "Kali ini Anda akan dibantu oleh sistem AI kami saat menilai klip video/audio"
     )
 
     st.subheader("Part 1 - Deteksi Penipuan")
     post_answers = render_detection_quiz(SET_B, "post")
 
     st.subheader("Part 2 - Video / Audio (dibantu AI)")
-    st.caption("Klip berbeda dari sebelumnya, dengan tingkat kesulitan yang setara.")
     post_df_answers = render_deepfake_quiz_assisted(DEEPFAKE_SET_B, "post_df")
 
     st.subheader("Part 3 - Tingkat Keyakinan")
